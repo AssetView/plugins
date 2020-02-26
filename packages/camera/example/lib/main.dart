@@ -138,9 +138,18 @@ class _CameraExampleHomeState extends State<CameraExampleHome>
         ),
       );
     } else {
+      CameraPreview cameraPreview = CameraPreview(controller);
+
       return AspectRatio(
         aspectRatio: controller.value.aspectRatio,
-        child: CameraPreview(controller),
+        child: GestureDetector(
+            onTapDown: (TapDownDetails details) {
+              Size cameraPreviewSize = cameraPreview.getWidgetSize();
+              controller.applyFocusArea(x: details.localPosition.dx.toInt(), y: details.localPosition.dy.toInt(), viewWidth: cameraPreviewSize.width.toInt(), viewHeight: cameraPreviewSize.height.toInt());
+              setState(() {});
+            },
+          child: cameraPreview
+        ),
       );
     }
   }

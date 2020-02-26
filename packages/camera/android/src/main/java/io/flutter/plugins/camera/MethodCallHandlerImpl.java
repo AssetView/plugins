@@ -138,6 +138,11 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
           result.success(camera.getMinExposureCompensation());
           break;
         }
+      case "applyFocusArea":
+        {
+          camera.applyFocusArea(result, call.argument("focusPointX"), call.argument("focusPointY"), call.argument("viewWidth"), call.argument("viewHeight"));
+          break;
+        }
       case "dispose":
         {
           if (camera != null) {

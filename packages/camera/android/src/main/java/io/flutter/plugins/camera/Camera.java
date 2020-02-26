@@ -7,6 +7,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -16,6 +17,7 @@ import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureFailure;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.CamcorderProfile;
 import android.media.Image;
@@ -501,6 +503,21 @@ public class Camera {
     return exposureCompensationRange.getLower().doubleValue();
   }
 
+  public void applyFocusArea(@NonNull final Result result, int x, int y, int viewWidth, int viewHeight) {
+    try {
+      //first stop the existing repeating request
+      cameraCaptureSession.stopRepeating();
+
+      applyFocusAreaRequest(captureRequestBuilder, x, y, viewWidth, viewHeight);
+
+      cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(), null, null);
+
+      result.success(null);
+    } catch (Exception e) {
+      result.error("cameraExposureCompensationFailed", e.getMessage(), null);
+    }
+  }
+
   private Range<Integer> getExposureCompensationRange() {
     Range<Integer> range = Range.create(DEFAULT_MIN_COMPENSATION, DEFAULT_MAX_COMPENSATION);
 
@@ -525,6 +542,64 @@ public class Camera {
           CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, exposureCompensationRange.getLower());
     } else {
       builderRequest.set(CaptureRequest.CONTROL_AE_EXPOSURE_COMPENSATION, value);
+    }
+  }
+
+  private void applyFocusAreaRequest(CaptureRequest.Builder builderRequest, int x, int y, int viewWidth, int viewHeight) {
+    try {
+
+      CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraName);
+      final Rect sensorArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+
+      //here I just flip x,y, but this needs to correspond with the sensor orientation (via SENSOR_ORIENTATION)
+      final int x1 = (int) ((y / (float) viewHeight) * (float) sensorArraySize.width());
+      final int y1 = (int) ((x / (float) viewWidth) * (float) sensorArraySize.height());
+
+      final int halfTouchWidth = 400;
+      final int halfTouchHeight = 400;
+      MeteringRectangle focusAreaTouch = new MeteringRectangle(
+              Math.max(x1 - halfTouchHeight, 0),
+              Math.max(y1 - halfTouchWidth, 0),
+              halfTouchWidth * 2,
+              halfTouchHeight * 2,
+              MeteringRectangle.METERING_WEIGHT_MAX - 1);
+
+      //cancel any existing AF trigger (repeated touches, etc.)
+      builderRequest.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_CANCEL);
+      builderRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF);
+
+      //Now add a new AF trigger with focus region
+      if (isMeteringAreaAFSupported()) {
+        builderRequest.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{focusAreaTouch});
+        builderRequest.set(CaptureRequest.CONTROL_AE_REGIONS, new MeteringRectangle[]{focusAreaTouch});
+      }
+
+      //then we ask for a single request (not repeating!)
+      cameraCaptureSession.capture(builderRequest.build(), null, null);
+
+      builderRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
+      builderRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_MACRO);
+      builderRequest.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
+      builderRequest.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER , CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START);
+
+    } catch (CameraAccessException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private boolean isMeteringAreaAFSupported() {
+    try {
+      CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraName);
+      Integer value = characteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF);
+      if (value != null) {
+        return value >= 1;
+      } else {
+        return false;
+      }
+    } catch (CameraAccessException e) {
+      //In case of error we will send default range
+      e.printStackTrace();
+      return false;
     }
   }
 

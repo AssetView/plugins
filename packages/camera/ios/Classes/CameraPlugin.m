@@ -791,6 +791,34 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
   }
 }
 
+- (void)applyFocusAreaWithFocusPointX:(NSNumber *)focusPointX
+                       andFocusPointY:(NSNumber *)focusPointY
+                         andViewWidth:(NSNumber *)viewWidth
+                        andViewHeight:(NSNumber *)viewHeight
+                               result:(FlutterResult)result {
+    float focusScaledPointX = focusPointY.floatValue / viewHeight.floatValue;
+    float focusScaledPointY = 1.0 - (focusPointX.floatValue / viewWidth.floatValue);
+    
+    NSError *error = nil;
+    [_captureDevice lockForConfiguration:&error];
+    if (error) {
+      result(getFlutterError(error));
+    }
+    
+    if ([_captureDevice isFocusModeSupported:AVCaptureFocusModeAutoFocus] && [_captureDevice isFocusPointOfInterestSupported]) {
+        [_captureDevice setFocusPointOfInterest:CGPointMake(focusScaledPointX, focusScaledPointY)];
+        [_captureDevice setFocusMode:AVCaptureFocusModeAutoFocus];
+    }
+    
+    if ([_captureDevice isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure] && [_captureDevice isExposurePointOfInterestSupported]) {
+        [_captureDevice setExposurePointOfInterest:CGPointMake(focusScaledPointX, focusScaledPointY)];
+        [_captureDevice setExposureMode:AVCaptureExposureModeAutoExpose];
+    }
+    
+    [_captureDevice unlockForConfiguration];
+    result(nil);
+}
+
 @end
 
 @interface CameraPlugin ()
@@ -909,7 +937,13 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
     result(@([_camera getMinExposureCompensation]));
   } else if ([@"getMaxExposureCompensation" isEqualToString:call.method]) {
     result(@([_camera getMaxExposureCompensation]));
-  } else if ([@"pauseVideoRecording" isEqualToString:call.method]) {
+  } else if ([@"applyFocusArea" isEqualToString:call.method]) {
+     [_camera applyFocusAreaWithFocusPointX:call.arguments[@"focusPointX"]
+                             andFocusPointY:call.arguments[@"focusPointY"]
+                               andViewWidth:call.arguments[@"viewWidth"]
+                              andViewHeight:call.arguments[@"viewHeight"]
+                                     result:result];
+   } else if ([@"pauseVideoRecording" isEqualToString:call.method]) {
     [_camera pauseVideoRecording];
     result(nil);
   } else if ([@"resumeVideoRecording" isEqualToString:call.method]) {

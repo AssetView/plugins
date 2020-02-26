@@ -140,12 +140,18 @@ class CameraPreview extends StatelessWidget {
   const CameraPreview(this.controller);
 
   final CameraController controller;
+  static GlobalKey _cameraPreviewKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     return controller.value.isInitialized
-        ? Texture(textureId: controller._textureId)
-        : Container();
+        ? Texture(textureId: controller._textureId, key: _cameraPreviewKey,)
+        : Container(key: _cameraPreviewKey);
+  }
+
+  Size getWidgetSize() {
+    RenderBox cameraPreviewRenderBox = _cameraPreviewKey.currentContext.findRenderObject();
+    return cameraPreviewRenderBox.size;
   }
 }
 
@@ -621,6 +627,25 @@ class CameraController extends ValueNotifier<CameraValue> {
 
     try {
       return await _channel.invokeMethod<double>('getMaxExposureCompensation');
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
+  /// Set the focus area
+  ///
+  /// Throws a [CameraException] if setting the focus area fails.
+  Future<void> applyFocusArea({int x, int y, int viewWidth, int viewHeight}) async {
+    if (!value.isInitialized || _isDisposed) {
+      throw CameraException(
+        'Uninitialized CameraController.',
+        'applyFocusArea was called on uninitialized CameraController',
+      );
+    }
+
+    try {
+      await _channel.invokeMethod<void>('applyFocusArea',
+          <String, dynamic>{'focusPointX': x, 'focusPointY': y, 'viewWidth': viewWidth, 'viewHeight': viewHeight});
     } on PlatformException catch (e) {
       throw CameraException(e.code, e.message);
     }
