@@ -514,7 +514,23 @@ public class Camera {
 
       result.success(null);
     } catch (Exception e) {
-      result.error("cameraExposureCompensationFailed", e.getMessage(), null);
+      result.error("cameraFocusAreaFailed", e.getMessage(), null);
+    }
+  }
+
+  public void applyContinuousAutoFocus(@NonNull final Result result) {
+    try {
+      //first stop the existing repeating request
+      cameraCaptureSession.stopRepeating();
+
+      captureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
+      captureRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
+      cameraCaptureSession.setRepeatingRequest(captureRequestBuilder.build(), null, null);
+
+      result.success(null);
+    } catch (Exception e) {
+      result.error("cameraGlobalAutoFocusFailed", e.getMessage(), null);
     }
   }
 
@@ -551,15 +567,14 @@ public class Camera {
       CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(cameraName);
       final Rect sensorArraySize = characteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
 
-      //here I just flip x,y, but this needs to correspond with the sensor orientation (via SENSOR_ORIENTATION)
-      final int x1 = (int) ((y / (float) viewHeight) * (float) sensorArraySize.width());
-      final int y1 = (int) ((x / (float) viewWidth) * (float) sensorArraySize.height());
+      final int meteringX = (int) ((y / (float) viewHeight) * (float) sensorArraySize.width());
+      final int meteringY = (int) (sensorArraySize.height() - (((x / (float) viewWidth) * (float) sensorArraySize.height())));
 
       final int halfTouchWidth = 400;
       final int halfTouchHeight = 400;
       MeteringRectangle focusAreaTouch = new MeteringRectangle(
-              Math.max(x1 - halfTouchHeight, 0),
-              Math.max(y1 - halfTouchWidth, 0),
+              Math.max(meteringX - halfTouchHeight, 0),
+              Math.max(meteringY - halfTouchWidth, 0),
               halfTouchWidth * 2,
               halfTouchHeight * 2,
               MeteringRectangle.METERING_WEIGHT_MAX - 1);
@@ -578,7 +593,7 @@ public class Camera {
       cameraCaptureSession.capture(builderRequest.build(), null, null);
 
       builderRequest.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
-      builderRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_MACRO);
+      builderRequest.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
       builderRequest.set(CaptureRequest.CONTROL_AF_TRIGGER, CameraMetadata.CONTROL_AF_TRIGGER_START);
       builderRequest.set(CaptureRequest.CONTROL_AE_PRECAPTURE_TRIGGER , CameraMetadata.CONTROL_AE_PRECAPTURE_TRIGGER_START);
 

@@ -651,6 +651,24 @@ class CameraController extends ValueNotifier<CameraValue> {
     }
   }
 
+  /// Apply continuous auto focus
+  ///
+  /// Throws a [CameraException] if setting the focus area fails.
+  Future<void> applyContinuousAutoFocus() async {
+    if (!value.isInitialized || _isDisposed) {
+      throw CameraException(
+        'Uninitialized CameraController.',
+        'applyContinuousAutoFocus was called on uninitialized CameraController',
+      );
+    }
+
+    try {
+      await _channel.invokeMethod<void>('applyContinuousAutoFocus');
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    }
+  }
+
   /// Releases the resources of this camera.
   @override
   Future<void> dispose() async {

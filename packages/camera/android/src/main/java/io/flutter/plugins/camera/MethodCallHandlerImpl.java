@@ -143,6 +143,11 @@ final class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
           camera.applyFocusArea(result, call.argument("focusPointX"), call.argument("focusPointY"), call.argument("viewWidth"), call.argument("viewHeight"));
           break;
         }
+      case "applyContinuousAutoFocus":
+        {
+          camera.applyContinuousAutoFocus(result);
+          break;
+        }
       case "dispose":
         {
           if (camera != null) {

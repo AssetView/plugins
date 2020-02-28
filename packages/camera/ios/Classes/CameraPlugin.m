@@ -819,6 +819,25 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
     result(nil);
 }
 
+- (void)applyContinuousAutoFocusWithResult:(FlutterResult)result {
+    NSError *error = nil;
+    [_captureDevice lockForConfiguration:&error];
+    if (error) {
+      result(getFlutterError(error));
+    }
+    
+    if ([_captureDevice isFocusModeSupported:AVCaptureFocusModeAutoFocus]) {
+        [_captureDevice setFocusMode:AVCaptureFocusModeContinuousAutoFocus];
+    }
+        
+    if ([_captureDevice isExposureModeSupported:AVCaptureExposureModeContinuousAutoExposure]) {
+        [_captureDevice setExposureMode:AVCaptureExposureModeContinuousAutoExposure];
+    }
+        
+    [_captureDevice unlockForConfiguration];
+    result(nil);
+}
+
 @end
 
 @interface CameraPlugin ()
@@ -943,6 +962,8 @@ FourCharCode const videoFormat = kCVPixelFormatType_32BGRA;
                                andViewWidth:call.arguments[@"viewWidth"]
                               andViewHeight:call.arguments[@"viewHeight"]
                                      result:result];
+  } else if ([@"applyContinuousAutoFocus" isEqualToString:call.method]) {
+      [_camera applyContinuousAutoFocusWithResult:result];
    } else if ([@"pauseVideoRecording" isEqualToString:call.method]) {
     [_camera pauseVideoRecording];
     result(nil);
